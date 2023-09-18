@@ -104,7 +104,7 @@ class PyConcreteAdmin(object):
                 self.verbose = getattr(args, 'verbose', False) or IS_TEST_VERBOSE
                 args.func(args)
             except PyConcreteError as e:
-                print('Error: ' + str(e))
+                print(f'Error: {str(e)}')
                 sys.exit(1)
 
     def compile(self, args):
@@ -132,7 +132,7 @@ class PyConcreteAdmin(object):
             if not pat.startswith("*"):
                 if not pat.startswith(os.sep):
                     pat = os.sep + pat
-                pat = "*" + pat
+                pat = f"*{pat}"
             patterns.append(pat)
         return patterns
 
@@ -153,15 +153,14 @@ class PyConcreteAdmin(object):
                     self._compile_pyc_file(args, fullpath)
 
     def _compile_pyc_file(self, args, py_file):
-        pyc_file = py_file + 'c'
+        pyc_file = f'{py_file}c'
         pyc_exists = exists(pyc_file)
         if not pyc_exists or os.stat(py_file).st_mtime != os.stat(pyc_file).st_mtime:
             py_compile.compile(py_file, cfile=pyc_file)
             if self.verbose:
-                print('* create %s' % pyc_file)
-        else:
-            if self.verbose:
-                print('* skip %s' % pyc_file)
+                print(f'* create {pyc_file}')
+        elif self.verbose:
+            print(f'* skip {pyc_file}')
 
         if args.remove_py:
             os.remove(py_file)
@@ -173,18 +172,17 @@ class PyConcreteAdmin(object):
         """
         import pyconcrete
 
-        pyc_file = py_file + 'c'
-        pye_file = py_file + 'e'
+        pyc_file = f'{py_file}c'
+        pye_file = f'{py_file}e'
         pyc_exists = exists(pyc_file)
         if not pyc_exists or os.stat(py_file).st_mtime != os.stat(pyc_file).st_mtime:
             py_compile.compile(py_file, cfile=pyc_file)
         if not exists(pye_file) or os.stat(py_file).st_mtime != os.stat(pye_file).st_mtime:
             pyconcrete.encrypt_file(pyc_file, pye_file)
             if self.verbose:
-                print('* create %s' % pye_file)
-        else:
-            if self.verbose:
-                print('* skip %s' % pye_file)
+                print(f'* create {pye_file}')
+        elif self.verbose:
+            print(f'* skip {pye_file}')
 
         # .pyc doesn't exists at beginning, remove it after .pye created
         if not pyc_exists or args.remove_pyc:

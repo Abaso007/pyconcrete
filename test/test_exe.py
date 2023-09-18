@@ -44,7 +44,9 @@ class TestPyconcreteExe(base.TestPyConcreteBase):
         output = output.replace('\r\n', '\n')
         paths = output.split('\n')
 
-        self.assertTrue(pye_dir in paths, "pye dir(%s) not in output paths %s" % (pye_dir, paths))
+        self.assertTrue(
+            pye_dir in paths, f"pye dir({pye_dir}) not in output paths {paths}"
+        )
 
     def test_sys_argv(self):
         pye = self.lib_gen_pye('import sys\n' 'argv = " ".join(sys.argv)\n' 'print(argv)', pye_filename='main.pye')
@@ -59,7 +61,7 @@ class TestPyconcreteExe(base.TestPyConcreteBase):
         output = subprocess.check_output([self._pyconcrete_exe, pye, '1', '2', '3'])
         output = output.decode('utf8')
 
-        self.assertEqual(output.strip(), pye + ' 1 2 3')
+        self.assertEqual(output.strip(), f'{pye} 1 2 3')
 
     # def test_sys_exit(self):
     #     pye = self.lib_gen_pye('import sys\n'

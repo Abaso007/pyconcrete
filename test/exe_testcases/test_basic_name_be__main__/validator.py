@@ -5,5 +5,5 @@ from __future__ import unicode_literals
 
 
 def validate(output_lines, *args, **kwargs):
-    assert len(output_lines) == 1 and '__main__' == output_lines[0]
+    assert len(output_lines) == 1 and output_lines[0] == '__main__'
     return True
