@@ -90,13 +90,16 @@ class TestPerformance(base.TestPyConcreteBase):
         t = q.get(timeout=2)
         p.join()
 
-        self.assertTrue(path.startswith(self.req_dir), "wrong import path of requests = %s" % path)
+        self.assertTrue(
+            path.startswith(self.req_dir),
+            f"wrong import path of requests = {path}",
+        )
         return t
 
     def test_requests_pye(self):
         self.lib_compile_pye(self.req_dir, remove_py=True, remove_pyc=True)
         t = 0.0
-        for i in range(RUN_COUNT):
+        for _ in range(RUN_COUNT):
             t += self._test_requests(True)
         logger.info(
             'test import request (pye) [count=%d] total time = %.2f, avg time = %.2f' % (RUN_COUNT, t, t / RUN_COUNT)
@@ -105,7 +108,7 @@ class TestPerformance(base.TestPyConcreteBase):
     def test_requests_pyc(self):
         self.lib_compile_pyc(self.req_dir, remove_py=True)
         t = 0.0
-        for i in range(RUN_COUNT):
+        for _ in range(RUN_COUNT):
             t += self._test_requests(False)
         logger.info(
             'test import request (pyc) [count=%d] total time = %.2f, avg time = %.2f' % (RUN_COUNT, t, t / RUN_COUNT)
@@ -114,7 +117,7 @@ class TestPerformance(base.TestPyConcreteBase):
     def test_requests_pyc_with_import_hooker(self):
         self.lib_compile_pyc(self.req_dir, remove_py=True)
         t = 0.0
-        for i in range(RUN_COUNT):
+        for _ in range(RUN_COUNT):
             t += self._test_requests(True)
         logger.info(
             'test import request (pyc) (import hooker) [count=%d] total time = %.2f, avg time = %.2f'
@@ -123,7 +126,7 @@ class TestPerformance(base.TestPyConcreteBase):
 
     def test_requests_py(self):
         t = 0.0
-        for i in range(RUN_COUNT):
+        for _ in range(RUN_COUNT):
             t += self._test_requests(False)
         logger.info(
             'test import request (py) [count=%d] total time = %.2f, avg time = %.2f' % (RUN_COUNT, t, t / RUN_COUNT)
@@ -131,7 +134,7 @@ class TestPerformance(base.TestPyConcreteBase):
 
     def test_requests_py_with_import_hooker(self):
         t = 0.0
-        for i in range(RUN_COUNT):
+        for _ in range(RUN_COUNT):
             t += self._test_requests(True)
         logger.info(
             'test import request (py) (import hooker) [count=%d] total time = %.2f, avg time = %.2f'

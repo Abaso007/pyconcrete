@@ -35,7 +35,7 @@ class TestConcrete(base.TestPyConcreteBase):
 
     def __do_encrypt_decrypt_file(self, py_code):
         py_filepath = self.lib_gen_py(py_code, 'test.py')
-        pye_filepath = py_filepath + 'e'
+        pye_filepath = f'{py_filepath}e'
 
         import pyconcrete
 
@@ -51,9 +51,10 @@ class TestConcrete(base.TestPyConcreteBase):
         self.assertEqual(py_code, res)
 
     def test_process_py_code_large(self):
-        py_code = ''
-        for i in range(100):
-            py_code += 'print("This is testing large py file ... %s")\r\n' % i
+        py_code = ''.join(
+            'print("This is testing large py file ... %s")\r\n' % i
+            for i in range(100)
+        )
         res = self.__do_encrypt_decrypt_file(py_code.encode('utf8'))
         self.assertEqual(py_code, res.decode('utf8'))
 

@@ -27,7 +27,7 @@ class TestWheel(base.TestPyConcreteBase):
         env = os.environ.copy()
         env[PASSPHRASE_ENV] = 'test'
         sp = subprocess.run(
-            'pip wheel --wheel-dir=%s .' % tempfile.gettempdir(),
+            f'pip wheel --wheel-dir={tempfile.gettempdir()} .',
             env=env,
             shell=True,
             stdout=subprocess.PIPE,

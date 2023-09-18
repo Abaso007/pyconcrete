@@ -26,7 +26,9 @@ class TestBasic(base.TestPyConcreteBase):
     def test_import(self):
         import pyconcrete
 
-        logger.info('pyconcrete info="%s", path=%s' % (pyconcrete.info(), pyconcrete.__file__))
+        logger.info(
+            f'pyconcrete info="{pyconcrete.info()}", path={pyconcrete.__file__}'
+        )
 
         # print "lib dir=[%s], pyconcrete __init__=[%s]" % (self.lib_dir, pyconcrete.__file__)
         self.assertTrue(pyconcrete.__file__.startswith(self.lib_dir))  # check import correct module

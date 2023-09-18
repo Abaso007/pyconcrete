@@ -28,8 +28,7 @@ class TestExe(base.TestPyConcreteBase):
         for tc in test_cases:
             print('test_exe_testcases - {tc.module_name} ... '.format(tc=tc), end='')
             try:
-                res = tc.run()
-                if res:
+                if res := tc.run():
                     self.assertTrue(res, "{tc.module_name} validate failed".format(tc=tc))
                     print('Success')
                 else:
@@ -42,12 +41,12 @@ class TestExe(base.TestPyConcreteBase):
                 print('  ======= output lines ======')
                 print('  ' + '\n  '.join(e.output_lines))
                 print('  ======= validate_errors ======')
-                print('  ' + e.validate_errors)
+                print(f'  {e.validate_errors}')
                 print('}}')
                 error = True
             except Exception as e:
                 print('Exception')
-                print(str(e))
+                print(e)
                 print('{{')
                 print('  {tc.module_name} tmp_dir=`{tc.tmp_dir}`'.format(tc=tc))
                 print('}}')

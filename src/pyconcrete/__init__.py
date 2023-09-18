@@ -110,7 +110,7 @@ class PyeMetaPathFinder(object):
             mod_path = join(trypath, mod_name)
             is_pkg = isdir(mod_path)
             if is_pkg:
-                full_path = join(mod_path, '__init__' + EXT_PYE)
+                full_path = join(mod_path, f'__init__{EXT_PYE}')
                 pkg_path = mod_path
             else:
                 full_path = mod_path + EXT_PYE
