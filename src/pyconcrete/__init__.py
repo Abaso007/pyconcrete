@@ -103,7 +103,8 @@ class PyeLoader(SourceFileLoader):
 
 
 def install():
-    loader_details = [(PyeLoader, SOURCE_SUFFIXES)] + _get_supported_file_loaders()
+    # only put pyconcrete ext/suffix(.pye) for loader, leave default suffixes(SOURCE_SUFFIXES) to default loader
+    loader_details = [(PyeLoader, [get_ext()])] + _get_supported_file_loaders()
 
     sys.path_importer_cache.clear()
     sys.path_hooks.insert(0, FileFinder.path_hook(*loader_details))
