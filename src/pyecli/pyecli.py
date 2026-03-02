@@ -19,7 +19,10 @@ import fnmatch
 import logging
 import os
 import py_compile
+import shutil
 import sys
+import tempfile
+import zipfile
 from os.path import exists, isdir, isfile, join, splitext
 
 IGNORE_FILES = ['.', '..', '.git', '.svn', 'pyconcrete']
@@ -89,6 +92,35 @@ class PyConcreteCli(object):
         )
         parser_compile.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
         parser_compile.set_defaults(func=self.compile)
+
+        # === build-zip === #
+        parser_build_zip = subparsers.add_parser('build-zip', help='compile .py to .pye and pack into zip')
+        parser_build_zip.add_argument(
+            '-s',
+            '--source',
+            dest='source',
+            required=True,
+            help='source directory to process',
+        )
+        parser_build_zip.add_argument(
+            '-o',
+            '--output',
+            dest='output',
+            required=True,
+            help='output zip file path',
+        )
+        parser_build_zip.add_argument(
+            '-i',
+            '--ignore-file-list',
+            dest='ignore_file_list',
+            metavar='filename',
+            nargs='+',
+            default=tuple(),
+            help='ignore file name list',
+        )
+        parser_build_zip.add_argument('-e', '--ext', dest='ext', default='.pye', help='file extension, default is .pye')
+        parser_build_zip.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
+        parser_build_zip.set_defaults(func=self.build_zip)
 
         if len(sys.argv) == 1:
             parser.print_help()
@@ -187,6 +219,44 @@ class PyConcreteCli(object):
             os.remove(pyc_file)
         if args.remove_py:
             os.remove(py_file)
+
+    def build_zip(self, args):
+        source = args.source
+        if not isdir(source):
+            raise PyConcreteError("build-zip: --source must be a directory")
+
+        # copy source to temp dir to avoid destroying original .py files
+        with tempfile.TemporaryDirectory() as tmp_build_dir:
+            work_dir = join(tmp_build_dir, 'src')
+            shutil.copytree(source, work_dir)
+
+            # compile all .py -> .pye in the working copy
+            compile_args = argparse.Namespace(
+                sources=[work_dir],
+                pye=True,
+                pyc=False,
+                ext=args.ext,
+                remove_py=True,
+                remove_pyc=True,
+                ignore_file_list=args.ignore_file_list,
+                verbose=self.verbose,
+            )
+            self.compile(compile_args)
+
+            # pack all .pye files into zip
+            output = args.output
+            with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for root, _dirs, files in os.walk(work_dir):
+                    for filename in files:
+                        if filename.endswith(args.ext):
+                            abs_path = join(root, filename)
+                            arc_name = os.path.relpath(abs_path, work_dir)
+                            zf.write(abs_path, arc_name)
+                            if self.verbose:
+                                print('* zip add %s' % arc_name)
+
+            if self.verbose:
+                print('* created %s' % output)
 
     @staticmethod
     def _fnmatch(name, patterns):
