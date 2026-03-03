@@ -100,7 +100,8 @@ class PyConcreteCli(object):
             '--source',
             dest='source',
             required=True,
-            help='source directory to process',
+            help='source "directory" to process, which children will be zip into root. '
+            'Ex: `-s foo` -> "foo/bar/__init__.py" in zip will be "bar/__init__.pye"',
         )
         parser_build_zip.add_argument(
             '-o',
