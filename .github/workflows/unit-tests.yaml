@@ -16,10 +16,11 @@ jobs:
    steps:
      - uses: actions/checkout@v4
      - uses: docker/setup-compose-action@v1
+     - uses: extractions/setup-just@v3
 
      - name: Run tests in Docker
        run: |
-         make test ${{ matrix.py-version}}
+         just test ${{ matrix.py-version}}
 
   test-on-windows:
     runs-on: windows-latest

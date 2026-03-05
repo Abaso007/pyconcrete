@@ -30,6 +30,9 @@ RUN set -ex \
         \
     && rm -rf /var/lib/apt/lists/*
 
+# install justfile
+RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+
 # install pip
 RUN if [ "${PY_VER}" = "3.7" ] ; then \
         curl https://bootstrap.pypa.io/pip/3.7/get-pip.py | python3.7 ; \
