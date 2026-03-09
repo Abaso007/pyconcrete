@@ -82,7 +82,7 @@ class PyeLoader(SourceFileLoader):
         return _get_magic_size()
 
     @staticmethod
-    def _validate_version(data):
+    def validate_version(data):
         magic = importlib.util.MAGIC_NUMBER
         ml = len(magic)
         if data[:ml] != magic:
@@ -97,7 +97,7 @@ class PyeLoader(SourceFileLoader):
 
         path = self.get_filename(fullname)
         data = decrypt_buffer(self.get_data(path))
-        self._validate_version(data)
+        self.validate_version(data)
         return marshal.loads(data[self.magic :])
 
     def get_source(self, fullname):
@@ -114,10 +114,8 @@ class PyeZipImporter:
     _negative_cache = set()
 
     def __init__(self, path):
-        # Pre-check: skip filesystem walk for paths that clearly aren't zip-related.
-        # Note: For submodule imports, Python passes sub-paths like '/foo/bar.zip/mypkg'
-        #       all package/submodule imports from within zip archives.
-        if '.zip' not in path:
+        # Quick reject: if it's a plain directory, skip zip handling
+        if os.path.isdir(path):
             raise ImportError(f"not a zip file: {path}")
 
         if path in self._negative_cache:
@@ -227,7 +225,7 @@ class PyeZipImporter:
             encrypted_data = zf.read(zip_internal_path)
 
         data = decrypt_buffer(encrypted_data)
-        PyeLoader._validate_version(data)
+        PyeLoader.validate_version(data)
         code = marshal.loads(data[_get_magic_size() :])
 
         exec(code, module.__dict__)
@@ -237,6 +235,45 @@ class PyeZipImporter:
         with cls._cache_lock:
             cls._zip_directory_cache.clear()
             cls._negative_cache.clear()
+
+
+def run_pye(pye_path):
+    """Execute an encrypted .pye file as __main__. Called by C layer"""
+    with open(pye_path, 'rb') as f:
+        encrypted_data = f.read()
+
+    data = decrypt_buffer(encrypted_data)
+    PyeLoader.validate_version(data)
+    code = marshal.loads(data[_get_magic_size() :])
+
+    globs = {
+        '__name__': '__main__',
+        '__file__': os.path.abspath(pye_path),
+        '__builtins__': __builtins__,
+    }
+    exec(code, globs)
+
+
+def run_pyz(pyz_path):
+    """Execute __main__.pye from a .pyz zip archive. Called by C layer"""
+    ext = get_ext()
+    main_entry = '__main__' + ext
+
+    with zipfile.ZipFile(pyz_path, 'r') as zf:
+        if main_entry not in zf.namelist():
+            raise RuntimeError(f"cannot find {main_entry} in {pyz_path}")
+        encrypted_data = zf.read(main_entry)
+
+    data = decrypt_buffer(encrypted_data)
+    PyeLoader.validate_version(data)
+    code = marshal.loads(data[_get_magic_size() :])
+
+    globs = {
+        '__name__': '__main__',
+        '__file__': os.path.abspath(pyz_path),
+        '__builtins__': __builtins__,
+    }
+    exec(code, globs)
 
 
 def install():

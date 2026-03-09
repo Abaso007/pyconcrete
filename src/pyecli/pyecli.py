@@ -120,6 +120,14 @@ class PyConcreteCli(object):
             help='ignore file name list',
         )
         parser_build_zip.add_argument('-e', '--ext', dest='ext', default='.pye', help='file extension, default is .pye')
+        parser_build_zip.add_argument(
+            '-m',
+            '--main',
+            dest='main',
+            default=None,
+            help='entry point in "pkg.mod:fn" format, generates __main__.py that calls it. '
+            'Similar to `python -m zipapp myapp -m "myapp:main"`',
+        )
         parser_build_zip.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
         parser_build_zip.set_defaults(func=self.build_zip)
 
@@ -221,15 +229,36 @@ class PyConcreteCli(object):
         if args.remove_py:
             os.remove(py_file)
 
+    @staticmethod
+    def _generate_main_py(work_dir, entry_point):
+        """Generate __main__.py from entry point spec 'pkg.mod:fn'."""
+        if ':' not in entry_point:
+            raise PyConcreteError(f"build-zip: --main must be in 'pkg.mod:fn' format, got '{entry_point}'")
+        module, func = entry_point.rsplit(':', 1)
+        main_content = f"from {module} import {func}\n{func}()\n"
+        main_path = join(work_dir, '__main__.py')
+        if isfile(main_path):
+            raise PyConcreteError('build-zip: --main conflict with existing __main__.py in source directory')
+        with open(main_path, 'w') as f:
+            f.write(main_content)
+
     def build_zip(self, args):
         source = args.source
         if not isdir(source):
             raise PyConcreteError("build-zip: --source must be a directory")
 
+        if args.output.endswith('.pyz') and not args.main and not isfile(join(source, '__main__.py')):
+            raise PyConcreteError(
+                "build-zip: .pyz output requires __main__.py in source directory or --main entry point"
+            )
+
         # copy source to temp dir to avoid destroying original .py files
         with tempfile.TemporaryDirectory() as tmp_build_dir:
             work_dir = join(tmp_build_dir, 'src')
             shutil.copytree(source, work_dir)
+
+            if args.main:
+                self._generate_main_py(work_dir, args.main)
 
             # compile all .py -> .pye in the working copy
             compile_args = argparse.Namespace(
