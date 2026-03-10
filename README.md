@@ -130,12 +130,12 @@ $ pytest tests
 
 * test in docker environment
 ```sh
-$ make test
+$ just test
 ```
 
 * test in docker environment for specific python version
 ```sh
-$ make test 3.10
+$ just test 3.10
 ```
 
 Example

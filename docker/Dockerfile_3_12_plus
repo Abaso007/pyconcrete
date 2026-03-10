@@ -33,6 +33,9 @@ RUN set -ex \
     \
     && curl https://bootstrap.pypa.io/get-pip.py | python${PY_VER}
 
+# install justfile
+RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+
 RUN set -ex \
     && mkdir -p /code/tests \
     && ln -sf /usr/bin/python${PY_VER} /usr/bin/python

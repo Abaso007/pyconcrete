@@ -13,7 +13,7 @@ $ pytest
 
 Run test in docker, for testing different python version environment:
 ```shell
-$ make test 3.10
+$ just test 3.10
 ```
 
 
