@@ -10,14 +10,6 @@
 #define RET_OK 0
 #define RET_FAIL 1
 
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >=7
-    #define MAGIC_OFFSET 16
-#elif PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >=3
-    #define MAGIC_OFFSET 12
-#else
-    #define MAGIC_OFFSET 8
-#endif
-
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION <=7
     #define SETUP_ARGV_BY_LEGACY
 #else
@@ -47,9 +39,11 @@
 
 
 int createAndInitPyconcreteModule();
-int execPycContent(PyObject* pyc_content, const _CHAR* filepath);
 int runFile(const _CHAR* filepath);
 int prependSysPath0(const _CHAR* script_path);
+int isZipFile(const _CHAR* filepath);
+int prependSysPath0ForPyz(const _CHAR* pyz_path);
+int runPyzFile(const _CHAR* filepath);
 void initPython(int argc, _CHAR *argv[]);
 PyObject* getFullPath(const _CHAR* filepath);
 
@@ -113,10 +107,20 @@ int main(int argc, char *argv[])
                 free(argv_ex[i]);
             }
     #endif
-#else
-            prependSysPath0(argv[1]);
 #endif // SETUP_ARGV_BY_LEGACY
-            ret = runFile(argv[1]);
+
+            if (isZipFile(argv[1]))
+            {
+                prependSysPath0ForPyz(argv[1]);
+                ret = runPyzFile(argv[1]);
+            }
+            else
+            {
+#if defined(SETUP_ARGV_BY_PYCONFIG)
+                prependSysPath0(argv[1]);
+#endif
+                ret = runFile(argv[1]);
+            }
         }
     }
 
@@ -247,97 +251,19 @@ ERROR:
 }
 
 
-int execPycContent(PyObject* pyc_content, const _CHAR* filepath)
-{
-    int ret = RET_OK;
-    PyObject* py_marshal = NULL;
-    PyObject* py_marshal_loads = NULL;
-    PyObject* pyc_content_wo_magic = NULL;
-    PyObject* py_code = NULL;
-    PyObject* global = PyDict_New();
-    Py_ssize_t content_size = 0;
-    char* content = NULL;
-#if PY_MAJOR_VERSION >= 3
-    PyObject* main_name = PyUnicode_FromString("__main__");
-#else
-    PyObject* main_name = PyBytes_FromString("__main__");
-#endif
-
-    // load compiled source from .pyc content
-    py_marshal = PyImport_ImportModule("marshal");
-    py_marshal_loads = PyObject_GetAttrString(py_marshal, "loads");
-
-    content = PyBytes_AS_STRING(pyc_content);
-    content_size = PyBytes_Size(pyc_content);
-
-    pyc_content_wo_magic = PyBytes_FromStringAndSize(content+MAGIC_OFFSET, content_size-MAGIC_OFFSET);
-    py_code = PyObject_CallFunctionObjArgs(py_marshal_loads, pyc_content_wo_magic, NULL);
-    if(py_code == NULL && PyErr_Occurred() != NULL)
-    {
-        ret = RET_FAIL;
-        PyErr_Print();
-        goto ERROR;
-    }
-
-    // setup global and exec loaded py_code
-    PyObject* py_full_filepath = getFullPath(filepath);
-    PyDict_SetItemString(global, "__name__", main_name);
-    PyDict_SetItemString(global, "__file__", py_full_filepath);
-    PyDict_SetItemString(global, "__builtins__", PyEval_GetBuiltins());
-    PyEval_EvalCode(py_code, global, global);
-
-ERROR:
-    Py_XDECREF(py_full_filepath);
-    Py_XDECREF(py_code);
-    Py_XDECREF(global);
-    Py_XDECREF(pyc_content_wo_magic);
-    Py_XDECREF(py_marshal_loads);
-    Py_XDECREF(py_marshal);
-    return ret;
-}
-
-
 int runFile(const _CHAR* filepath)
 {
-    FILE* src = NULL;
-    char* content = NULL;
-    int ret = RET_OK;
-    size_t s, size;
-    PyObject* py_content = NULL;
-    PyObject* py_plaint_content = NULL;
-    PyObject* py_args = NULL;
-
-    src = _fopen(filepath, _T("rb"));
-    if(src == NULL)
-    {
-        return RET_FAIL;
-    }
-
-    // read & parse file
-    {
-        fseek(src, 0, SEEK_END);
-        size = ftell(src);
-
-        fseek(src, 0, SEEK_SET);
-        content = malloc(size * sizeof(char));
-        s = fread(content, 1, size, src);
-        if(s != size)
-        {
-            return RET_FAIL;
-        }
-        py_content = PyBytes_FromStringAndSize(content, size);
-        py_args = PyTuple_New(1);
-        PyTuple_SetItem(py_args, 0, py_content);
-        py_plaint_content = fnDecryptBuffer(NULL, py_args);
-
-        Py_DECREF(py_args);
-        free(content);
-    }
-    fclose(src);
-
-    ret = execPycContent(py_plaint_content, filepath);
-
-    Py_DECREF(py_plaint_content);
+    PyObject* py_filepath = getFullPath(filepath);
+    PyObject* pyconcrete_mod = PyImport_ImportModule("pyconcrete");
+    PyObject* run_pye_func = PyObject_GetAttrString(pyconcrete_mod, "run_pye");
+    PyObject* args = Py_BuildValue("(O)", py_filepath);
+    PyObject* result = PyObject_CallObject(run_pye_func, args);
+    int ret = (result == NULL) ? RET_FAIL : RET_OK;
+    Py_XDECREF(result);
+    Py_XDECREF(args);
+    Py_XDECREF(run_pye_func);
+    Py_XDECREF(pyconcrete_mod);
+    Py_XDECREF(py_filepath);
     return ret;
 }
 
@@ -369,6 +295,45 @@ int prependSysPath0(const _CHAR* script_path)
     Py_XDECREF(dirname_func);
     Py_XDECREF(args);
     Py_XDECREF(script_dir);
+    return ret;
+}
+
+
+int isZipFile(const _CHAR* filepath)
+{
+    FILE* f = _fopen(filepath, _T("rb"));
+    if (f == NULL) return 0;
+    unsigned char magic[4];
+    size_t n = fread(magic, 1, 4, f);
+    fclose(f);
+    return (n == 4 && magic[0] == 0x50 && magic[1] == 0x4B
+            && magic[2] == 0x03 && magic[3] == 0x04);
+}
+
+
+int prependSysPath0ForPyz(const _CHAR* pyz_path)
+{
+    PyObject* py_pyz_path = getFullPath(pyz_path);
+    PyObject* sys_path = PySys_GetObject("path");
+    int ret = (PyList_Insert(sys_path, 0, py_pyz_path) < 0) ? RET_FAIL : RET_OK;
+    Py_XDECREF(py_pyz_path);
+    return ret;
+}
+
+
+int runPyzFile(const _CHAR* filepath)
+{
+    int ret = RET_OK;
+    PyObject* py_filepath = getFullPath(filepath);
+    PyObject* pyconcrete_mod = PyImport_ImportModule("pyconcrete");
+    PyObject* result = PyObject_CallMethod(pyconcrete_mod, "run_pyz", "(O)", py_filepath);
+    if (result == NULL) {
+        ret = RET_FAIL;
+        PyErr_Print();
+    }
+    Py_XDECREF(result);
+    Py_XDECREF(pyconcrete_mod);
+    Py_XDECREF(py_filepath);
     return ret;
 }
 

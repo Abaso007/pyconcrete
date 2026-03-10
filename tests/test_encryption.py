@@ -65,7 +65,7 @@ print(pyconcrete.decrypt_buffer(data).decode('utf-8'))
         "1234567890ABCDEF#$%^&" * 10,
     ],
 )
-def test_encryption__aes_block_testing(venv_lib, pye_cli, tmpdir, plain_buffer):
+def test_encryption__aes_block_testing(venv_lib, tmpdir, plain_buffer):
     # execution
     output = _encrypt_plain_buffer_and_decrypt(venv_lib, tmpdir, plain_buffer)
 

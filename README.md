@@ -20,6 +20,8 @@ Protect python script work flow
   and then decrypt `MODULE.pye` via `_pyconcrete.pyd` and execute decrypted data (as .pyc content)
 * encrypt & decrypt secret key record in `_pyconcrete.pyd` (like DLL or SO)
   the secret key would be hide in binary code, can't see it directly in HEX view
+* pyconcrete can also execute `.pyz` (zip archive) files containing encrypted `.pye` modules,
+  it extracts and decrypts `__main__.pye` from the archive, and modules inside the `.pyz` can import each other via the `PyeZipImporter` hook
 
 
 Encryption
@@ -118,6 +120,54 @@ You must use `pyconcrete` to process the *main*.pye script.
   main.py       # import pyconcrete and your lib
   pyconcrete/*  # put pyconcrete lib in project root, keep it as original files
   src/*.pye     # your libs
+  ```
+
+
+### Zipapp (.pyz)
+* Build all your encrypted `.pye` modules into a single `.pyz` zip archive for easy distribution
+* The `.pyz` archive can be executed directly by `pyconcrete`
+
+#### Build .pyz
+```sh
+# basic: pack a source directory into a .pyz (requires __main__.py in source)
+$ pyecli build-zip --source=<your_project_dir> --output=app.pyz
+
+# specify an entry point (generates __main__.py automatically)
+$ pyecli build-zip --source=<your_project_dir> --output=app.pyz --main=pkg.mod:fn
+
+# use custom encrypted file extension
+$ pyecli build-zip --source=<your_project_dir> --output=app.pyz --ext=.pye
+```
+
+* `build-zip` arguments
+  * `--source`: (Mandatory) Source directory containing `.py` files to package
+  * `--output`: (Mandatory) Output path. Use `.pyz` for executable archive or `.zip` for library archive
+  * `--main`: Entry point in `pkg.mod:fn` format. Generates `__main__.py` that calls the specified function
+  * `--ext`: Custom encrypted file extension (default: `.pye`)
+  * `--ignore-file-list`: File patterns to ignore during build
+
+#### Execute .pyz
+```sh
+$ pyconcrete app.pyz [args...]
+```
+* `pyconcrete` detects the `.pyz` file, extracts `__main__.pye` from the archive, decrypts and executes it
+  * project layout as below
+  ```sh
+  pyconcrete app.pyz   # execute the encrypted zip archive
+  ```
+
+#### Import from .pyz / .zip
+* Zip archives placed on `sys.path` are importable — pyconcrete's `PyeZipImporter` hook automatically finds and decrypts `.pye` modules inside zip files
+```python
+import sys
+import pyconcrete
+sys.path.insert(0, 'libs.zip')
+import mylib  # loads mylib.pye from libs.zip
+```
+  * project layout as below
+  ```sh
+  main.pye         # your entry script
+  libs.zip         # zip containing encrypted .pye modules
   ```
 
 

@@ -1,5 +1,15 @@
 # Pyconcrete Changelog
 
+## 1.3.0 (2026-03-10)
+
+### Bug fixes
+* Fix FileFinder remove to handle default suffix (.py, .pyc, ..) https://github.com/Falldog/pyconcrete/issues/130
+
+### Features
+* Support zipapp mode https://github.com/Falldog/pyconcrete/pull/134
+* Migrate dev tool Makefile to justfile https://github.com/Falldog/pyconcrete/pull/132
+
+
 ## 1.2.0 (2025-09-01)
 
 ### Bug fixes

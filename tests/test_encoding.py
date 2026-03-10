@@ -13,25 +13,23 @@
 # limitations under the License.
 import pytest
 
+from .conftest import PyeBuilder
+
 
 @pytest.mark.parametrize("text", ["早安", "¡Buenos días!", "おはようございます"])
-def test_encoding(venv_exe, pye_cli, tmpdir, text):
-    # prepare
-    pye_path = (
-        pye_cli.setup(tmpdir, 'test_encoding')
-        .source_code(
-            # fix windows encoding issue, write byte to stdout directly
-            f"""
-import sys
-sys.stdout.buffer.write('{text}'.encode('utf-8'))
-            """.strip()
+def test_encoding(venv_exe, venv_cli, tmpdir, text):
+    # fix windows encoding issue, write byte to stdout directly
+    output = (
+        PyeBuilder()
+        .setup(venv_exe, venv_cli, tmpdir)
+        .build()
+        .run_pye(
+            source_code=f"""
+            import sys
+            sys.stdout.buffer.write('{text}'.encode('utf-8'))
+        """
         )
-        .get_encrypt_path()
     )
-
-    # execution
-    output = venv_exe.pyconcrete(pye_path)
-    output = output.strip()
 
     # verification
     assert output == text

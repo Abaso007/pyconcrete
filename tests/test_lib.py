@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-def test_lib__import_pyconcrete__venv_lib__validate__file__(venv_lib, pye_cli, tmpdir):
+def test_lib__import_pyconcrete__venv_lib__validate__file__(venv_lib):
     """
     compare to test_exe__import_pyconcrete__venv_exe__validate__file__
     pyconcrete lib mode, the `pyconcrete` module contain`__file__` attribute

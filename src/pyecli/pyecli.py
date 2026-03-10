@@ -19,7 +19,10 @@ import fnmatch
 import logging
 import os
 import py_compile
+import shutil
 import sys
+import tempfile
+import zipfile
 from os.path import exists, isdir, isfile, join, splitext
 
 IGNORE_FILES = ['.', '..', '.git', '.svn', 'pyconcrete']
@@ -89,6 +92,44 @@ class PyConcreteCli(object):
         )
         parser_compile.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
         parser_compile.set_defaults(func=self.compile)
+
+        # === build-zip === #
+        parser_build_zip = subparsers.add_parser('build-zip', help='compile .py to .pye and pack into zip')
+        parser_build_zip.add_argument(
+            '-s',
+            '--source',
+            dest='source',
+            required=True,
+            help='source "directory" to process, which children will be zip into root. '
+            'Ex: `-s foo` -> "foo/bar/__init__.py" in zip will be "bar/__init__.pye"',
+        )
+        parser_build_zip.add_argument(
+            '-o',
+            '--output',
+            dest='output',
+            required=True,
+            help='output zip file path',
+        )
+        parser_build_zip.add_argument(
+            '-i',
+            '--ignore-file-list',
+            dest='ignore_file_list',
+            metavar='filename',
+            nargs='+',
+            default=tuple(),
+            help='ignore file name list',
+        )
+        parser_build_zip.add_argument('-e', '--ext', dest='ext', default='.pye', help='file extension, default is .pye')
+        parser_build_zip.add_argument(
+            '-m',
+            '--main',
+            dest='main',
+            default=None,
+            help='entry point in "pkg.mod:fn" format, generates __main__.py that calls it. '
+            'Similar to `python -m zipapp myapp -m "myapp:main"`',
+        )
+        parser_build_zip.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
+        parser_build_zip.set_defaults(func=self.build_zip)
 
         if len(sys.argv) == 1:
             parser.print_help()
@@ -187,6 +228,65 @@ class PyConcreteCli(object):
             os.remove(pyc_file)
         if args.remove_py:
             os.remove(py_file)
+
+    @staticmethod
+    def _generate_main_py(work_dir, entry_point):
+        """Generate __main__.py from entry point spec 'pkg.mod:fn'."""
+        if ':' not in entry_point:
+            raise PyConcreteError(f"build-zip: --main must be in 'pkg.mod:fn' format, got '{entry_point}'")
+        module, func = entry_point.rsplit(':', 1)
+        main_content = f"from {module} import {func}\n{func}()\n"
+        main_path = join(work_dir, '__main__.py')
+        if isfile(main_path):
+            raise PyConcreteError('build-zip: --main conflict with existing __main__.py in source directory')
+        with open(main_path, 'w') as f:
+            f.write(main_content)
+
+    def build_zip(self, args):
+        source = args.source
+        if not isdir(source):
+            raise PyConcreteError("build-zip: --source must be a directory")
+
+        if args.output.endswith('.pyz') and not args.main and not isfile(join(source, '__main__.py')):
+            raise PyConcreteError(
+                "build-zip: .pyz output requires __main__.py in source directory or --main entry point"
+            )
+
+        # copy source to temp dir to avoid destroying original .py files
+        with tempfile.TemporaryDirectory() as tmp_build_dir:
+            work_dir = join(tmp_build_dir, 'src')
+            shutil.copytree(source, work_dir)
+
+            if args.main:
+                self._generate_main_py(work_dir, args.main)
+
+            # compile all .py -> .pye in the working copy
+            compile_args = argparse.Namespace(
+                sources=[work_dir],
+                pye=True,
+                pyc=False,
+                ext=args.ext,
+                remove_py=True,
+                remove_pyc=True,
+                ignore_file_list=args.ignore_file_list,
+                verbose=self.verbose,
+            )
+            self.compile(compile_args)
+
+            # pack all .pye files into zip
+            output = args.output
+            with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for root, _dirs, files in os.walk(work_dir):
+                    for filename in files:
+                        if filename.endswith(args.ext):
+                            abs_path = join(root, filename)
+                            arc_name = os.path.relpath(abs_path, work_dir)
+                            zf.write(abs_path, arc_name)
+                            if self.verbose:
+                                print('* zip add %s' % arc_name)
+
+            if self.verbose:
+                print('* created %s' % output)
 
     @staticmethod
     def _fnmatch(name, patterns):
